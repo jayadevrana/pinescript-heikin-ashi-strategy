@@ -1,0 +1,60 @@
+//@version=5
+// Based on Heikin Ashi Strategy v2 by breizh29
+
+strategy('Heikin Ashi Strategy [Krypt]', shorttitle='HA Strategy [Krypt]', overlay=true)
+
+res = input.timeframe(title='Heikin Ashi Candle Time Frame', defval='60')
+hshift = input(1, title='Heikin Ashi Candle Time Frame Shift')
+res1 = input.timeframe(title='Heikin Ashi EMA Time Frame', defval='180')
+mhshift = input(0, title='Heikin Ashi EMA Time Frame Shift')
+fama = input(1, 'Heikin Ashi EMA Period')
+test = input(1, 'Heikin Ashi EMA Shift')
+sloma = input(30, 'Slow EMA Period')
+slomas = input(1, 'Slow EMA Shift')
+logtransform = input(false, 'Log Transform')
+stoploss = input(true, 'Stop Loss')
+showplots = input(true, 'Show Plots')
+
+ha_t = ticker.heikinashi(syminfo.tickerid)
+ha_close = request.security(ha_t, res, logtransform ? math.log(close[hshift]) : close[hshift])
+mha_close = request.security(ha_t, res1, logtransform ? math.log(close[mhshift]) : close[mhshift])
+
+fma = ta.ema(mha_close[test], fama)
+sma = ta.ema(ha_close[slomas], sloma)
+
+plot(showplots ? logtransform ? math.exp(fma) : fma : na, title='MA', color=color.new(#0094ff, 0), linewidth=2, style=plot.style_line)
+plot(showplots ? logtransform ? math.exp(sma) : sma : na, title='SMA', color=color.new(#ff6a00, 0), linewidth=2, style=plot.style_line)
+
+golong = ta.crossover(fma, sma)
+goshort = ta.crossunder(fma, sma)
+
+
+
+_1 = input(true, '══════════ ADD Value For Angel ══════════')
+// long_syntax = input("", "ADD LONG SYNTAX", input.string)
+// Short_syntax = input("", "ADD SHORT SYNTAX", input.string)
+ts = input('BANKNIFTY10MAR22', 'TRADE SYMBOL')
+exchange = input.string('NFO', 'EXCHANGE', options=['NSE', 'NFO', 'MCX', 'OTHER'])
+nearby = input('100', 'NEAR BY')
+atmotm = input('+0', 'ATM OR OTM FOR CALL')
+atmotm1 = input('-0', 'ATM OR OTM FOR PUT')
+
+qty = input('25', 'Quantity Value')
+
+
+long_alert = '[{"AS":"' + ts + '","P":"NRML","E":"NFO","AT":"ANGEL"},{"V":"NORMAL","TT":"BUY","E":"NFO","TS":"' + ts + '{' + str.tostring(close) + '}CE","Q":"' + qty + '","OT":"MARKET","P":"NRML","VL":"DAY","NEAR":"' + nearby + '","CAL":"' + atmotm + '","AT":"ANGEL"}]'
+
+short_alert = '[{"AS":"' + ts + '","P":"NRML","E":"NFO","AT":"ANGEL"},{"V":"NORMAL","TT":"BUY","E":"NFO","TS":"' + ts + '{' + str.tostring(close) + '}PE","Q":"' + qty + '","OT":"MARKET","P":"NRML","VL":"DAY","NEAR":"' + nearby + '","CAL":"' + atmotm1 + '","AT":"ANGEL"}]'
+exit = '[{"CLOSE":"CLOSE","E":"NFO","AT":"ANGEL"}]'
+target = input.float(200)
+stop = input.float(200)
+
+if golong
+    strategy.entry('Buy', strategy.long, stop=stoploss ? high + syminfo.mintick : na,alert_message = long_alert)
+    
+strategy.exit('exit', 'Buy', limit=strategy.position_avg_price + target, stop=strategy.position_avg_price - stop,alert_message = exit)
+
+if goshort
+    strategy.entry('Sell', strategy.short, stop=stoploss ? low - syminfo.mintick : na,alert_message = short_alert)
+strategy.exit('exit', 'Sell', limit=strategy.position_avg_price - target, stop=strategy.position_avg_price + stop,alert_message = exit)
+
